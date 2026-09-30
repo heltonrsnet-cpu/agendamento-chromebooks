@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Agendamento de Chromebooks</title>
+    <!-- Vincula os estilos CSS externos -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Carrega a biblioteca para os gráficos de estatísticas -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 Agendamento de Chromebooks</h1>
+            <p>Rede Municipal de Ensino de Barueri</p>
+        </header>
+
+        <!-- SEÇÃO DE LOGIN -->
+        <div id="secao-login" class="card">
+            <h2>Identificação do Utilizador</h2>
+            <p>Insira as suas credenciais para aceder ao sistema:</p>
+            <form id="form-login">
+                <div class="form-group">
+                    <label for="email-login">E-mail Institucional:</label>
+                    <input type="email" id="email-login" required placeholder="ex: professor@escola.local">
+                </div>
+                <div class="form-group">
+                    <label for="senha-login">Senha:</label>
+                    <input type="password" id="senha-login" required placeholder="Sua senha">
+                </div>
+                <button type="submit" class="btn">Entrar</button>
+            </form>
+            <p id="mensagem-login"></p>
+        </div>
+
+        <!-- SEÇÃO PRINCIPAL (Fica oculta até o utilizador iniciar sessão) -->
+        <div id="secao-sistema" class="hidden">
+            <div class="user-session-bar">
+                <div class="user-info">
+                    <p><strong>Utilizador com Sessão Iniciada:</strong> <span id="nome-usuario-logado"></span> (<span id="perfil-usuario-logado"></span>)</p>
+                </div>
+                <button onclick="fazerLogout()" class="btn btn-danger">Terminar Sessão</button>
+            </div>
+
+            <!-- PAINEL DE ESTATÍSTICAS DE USO -->
+            <div class="card">
+                <h2>📊 Painel de Estatísticas de Uso</h2>
+                <div class="stats-grid">
+                    <div class="stats-text">
+                        <p>Total de Agendamentos Realizados:</p>
+                        <div id="total-reservas" class="number-badge">0</div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="graficoUso"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Carrinhos Disponíveis:</h2>
+                <ul id="lista-equipamentos" class="equipamentos-grid">
+                    <li>A carregar carrinhos...</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h2>Realizar Novo Agendamento</h2>
+                <form id="form-agendamento">
+                    <div class="form-group">
+                        <label for="equipamento_id">ID do Equipamento (Carrinho):</label>
+                        <input type="number" id="equipamento_id" required placeholder="Ex: 1">
+                    </div>
+                    <div class="form-group">
+                        <label for="data">Data do Agendamento:</label>
+                        <input type="date" id="data" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="inicio">Horário de Início:</label>
+                        <input type="time" id="inicio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fim">Horário de Fim:</label>
+                        <input type="time" id="fim" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="turma">Turma/Disciplina:</label>
+                        <input type="text" id="turma" required placeholder="Ex: 7º Ano A">
+                    </div>
+                    <button type="submit" class="btn">Confirmar Agendamento</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vincula o script externo script.js -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
