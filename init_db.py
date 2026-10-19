@@ -57,7 +57,7 @@ def criar_banco():
 
     # Inserir Utilizadores com hash de senha
     cursor.execute('''
-    INSERT OR REPLACE INTO usuarios (id, nome, email, perfil, materia_disciplina, senha_hash) VALUES
+    INSERT OR IGNORE INTO usuarios (id, nome, email, perfil, materia_disciplina, senha_hash) VALUES
     (1, 'Prof. Cristiano Costa', 'professor@escola.local', 'Professor', 'Matemática', ?),
     (2, 'Profa. Isabela Rocha', 'professora@escola.local', 'Professor', 'Língua Portuguesa', ?),
     (3, 'Coordenador Helton Abadia', 'coordenador@escola.local', 'Coordenador', 'Coordenação Pedagógica', ?);

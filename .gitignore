@@ -1,0 +1,13 @@
+# Ambiente virtual
+venv/
+.venv/
+
+# Banco de dados local (gerado por init_db.py; contém hashes de senha)
+*.db
+
+# Python
+__pycache__/
+*.pyc
+
+# Variáveis de ambiente (SECRET_KEY etc.)
+.env
