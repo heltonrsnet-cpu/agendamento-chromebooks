@@ -35,8 +35,8 @@ header p { color: var(--text-muted); font-size: 14px; }
 .hidden { display: none !important; }
 .form-group { margin-bottom: 16px; }
 label { display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px; }
-input[type="email"], input[type="number"], input[type="date"], input[type="time"], input[type="text"] { width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text-main); background-color: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="time"], input[type="text"], select { width: 100%; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text-main); background-color: #fff; transition: border-color 0.2s, box-shadow 0.2s; }
+input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
 .btn { background-color: var(--primary); color: white; border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; display: inline-flex; align-items: center; justify-content: center; }
 .btn:hover { background-color: var(--primary-hover); }
 .btn-danger { background-color: var(--danger); } .btn-danger:hover { background-color: var(--danger-hover); }
@@ -46,7 +46,28 @@ input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px
 .equipamento-item { background: #f8fafc; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; font-size: 14px; }
 .equipamento-item strong { display: block; font-size: 15px; color: var(--text-main); margin-bottom: 4px; }
 .equipamento-item em { color: var(--success); font-style: normal; font-weight: 600; }
+.equipamento-item em.indisponivel { color: var(--danger); }
+.card h2 + p { color: var(--text-muted); font-size: 14px; margin-bottom: 16px; }
 .stats-grid { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
 .stats-text .number-badge { font-size: 36px; font-weight: 700; color: var(--primary); margin-top: 5px; }
 .chart-container { flex: 1; min-width: 250px; max-width: 320px; height: 180px; }
 #mensagem-login { font-size: 13px; margin-top: 8px; font-weight: 500; }
+/* --- Celulares (layout do app instalado) --- */
+@media (max-width: 600px) {
+    body {
+        padding: 16px 12px;
+        padding-top: max(16px, env(safe-area-inset-top));
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    header { margin-bottom: 20px; }
+    header h1 { font-size: 21px; }
+    .card { padding: 18px 16px; margin-bottom: 14px; }
+    .user-session-bar { flex-direction: column; align-items: stretch; gap: 12px; padding: 14px 16px; }
+    /* 16px evita o zoom automático do navegador ao tocar nos campos */
+    input[type="email"], input[type="password"], input[type="number"], input[type="date"], input[type="time"], input[type="text"], select { font-size: 16px; min-height: 44px; }
+    .btn { width: 100%; min-height: 46px; font-size: 15px; }
+    .stats-grid { flex-direction: column; align-items: stretch; }
+    .stats-text { text-align: center; }
+    .chart-container { max-width: none; min-width: 0; width: 100%; height: 220px; }
+    .equipamentos-grid { grid-template-columns: 1fr; gap: 10px; }
+}

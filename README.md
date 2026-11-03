@@ -81,6 +81,18 @@ $env:FLASK_DEBUG = "1"   # apenas em desenvolvimento
 
 > ⚠️ **Nunca ative `FLASK_DEBUG` em um servidor acessível pela rede.** A página de depuração do Flask permite executar código no servidor.
 
+## 📱 Instalar no Celular (PWA)
+
+O sistema é um **PWA** (Progressive Web App): pode ser instalado no Android como um aplicativo, com ícone próprio e abrindo em tela cheia.
+
+1. Publique o servidor em um endereço com **HTTPS** (o navegador só permite instalar PWAs em HTTPS ou em `localhost`).
+2. No celular, abra o endereço no **Chrome**.
+3. Toque no menu **⋮** e escolha **Instalar app** (ou **Adicionar à tela inicial**).
+
+Sem internet, o app mostra uma página avisando que está sem conexão. Os agendamentos sempre exigem conexão.
+
+> 🔄 Ao alterar `style.css`, `script.js` ou os ícones, aumente a versão em `VERSAO_CACHE` no `static/sw.js` para que os celulares descartem os arquivos antigos guardados em cache.
+
 ## ✅ Regras de Agendamento e Segurança
 
 *   **Sessão obrigatória:** todas as rotas da API (exceto o login) exigem que o usuário tenha iniciado sessão. A sessão expira após 8 horas e continua ativa ao recarregar a página.
@@ -116,7 +128,11 @@ Utilize as credenciais abaixo para testar o acesso ao sistema:
 ├── README.md                   # Documentação do projeto
 ├── static/                     # Arquivos estáticos da interface
 │   ├── style.css               # Estilização e layout responsivo
-│   └── script.js               # Lógica do cliente, gráficos e requisições Fetch
+│   ├── script.js               # Lógica do cliente, gráficos e requisições Fetch
+│   ├── manifest.webmanifest    # Manifesto do PWA (nome, cores e ícones do app)
+│   ├── sw.js                   # Service worker (cache dos arquivos e página offline)
+│   ├── offline.html            # Página exibida sem conexão
+│   └── icons/                  # Ícones do app instalado
 └── templates/                  
     └── index.html              # Interface do usuário (Dashboard)
 ```

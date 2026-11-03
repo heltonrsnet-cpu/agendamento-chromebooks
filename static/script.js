@@ -94,6 +94,7 @@ function carregarEquipamentos() {
                 titulo.textContent = `ID ${equipamento.id}: ${equipamento.identificador}`;
                 const estado = document.createElement('em');
                 estado.textContent = equipamento.status;
+                if (equipamento.status !== 'Disponível') estado.className = 'indisponivel';
 
                 item.append(
                     titulo, document.createElement('br'),
@@ -102,8 +103,29 @@ function carregarEquipamentos() {
                 );
                 lista.appendChild(item);
             });
+
+            preencherSeletorCarrinhos(resultado.body);
         })
         .catch(error => console.error('Erro ao buscar equipamentos:', error));
+}
+
+// Lista os carrinhos no formulário; os que não estão disponíveis aparecem desabilitados
+function preencherSeletorCarrinhos(equipamentos) {
+    const seletor = document.getElementById('equipamento_id');
+    const selecionado = seletor.value;
+    seletor.length = 1; // mantém só a opção "Selecione um carrinho"
+
+    equipamentos.forEach(equipamento => {
+        const disponivel = equipamento.status === 'Disponível';
+        const opcao = document.createElement('option');
+        opcao.value = equipamento.id;
+        opcao.textContent = `${equipamento.identificador} (${equipamento.bloco_localizacao})` +
+            (disponivel ? '' : ` - ${equipamento.status}`);
+        opcao.disabled = !disponivel;
+        seletor.appendChild(opcao);
+    });
+
+    seletor.value = selecionado;
 }
 
 // --- 4. PAINEL DE ESTATÍSTICAS E GRÁFICO ---

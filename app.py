@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, session
+from flask import Flask, jsonify, request, render_template, session, send_from_directory
 import os
 import secrets
 import sqlite3
@@ -48,6 +48,18 @@ def usuario_publico(usuario):
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
+# --- PWA: manifesto e service worker servidos na raiz, para que o app inteiro fique no escopo ---
+@app.route('/manifest.webmanifest', methods=['GET'])
+def manifest():
+    return send_from_directory(app.static_folder, 'manifest.webmanifest', mimetype='application/manifest+json')
+
+@app.route('/sw.js', methods=['GET'])
+def service_worker():
+    resposta = send_from_directory(app.static_folder, 'sw.js', mimetype='application/javascript')
+    # Sem cache, para que o navegador sempre encontre a versão mais nova do service worker
+    resposta.headers['Cache-Control'] = 'no-cache'
+    return resposta
 
 # Rota para listar todos os equipamentos (A API)
 @app.route('/api/equipamentos', methods=['GET'])

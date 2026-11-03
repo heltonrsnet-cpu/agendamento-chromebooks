@@ -1,9 +1,16 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Sistema de Agendamento de Chromebooks</title>
+    <!-- PWA: permite instalar o sistema como app no celular -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Chromebooks">
     <!-- Vincula os estilos CSS externos -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <!-- Carrega a biblioteca para os gráficos de estatísticas -->
@@ -68,8 +75,10 @@
                 <h2>Realizar Novo Agendamento</h2>
                 <form id="form-agendamento">
                     <div class="form-group">
-                        <label for="equipamento_id">ID do Equipamento (Carrinho):</label>
-                        <input type="number" id="equipamento_id" required placeholder="Ex: 1">
+                        <label for="equipamento_id">Carrinho:</label>
+                        <select id="equipamento_id" required>
+                            <option value="">Selecione um carrinho</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="data">Data do Agendamento:</label>
@@ -95,5 +104,14 @@
 
     <!-- Vincula o script externo script.js -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Registra o service worker do PWA (exige HTTPS, exceto em localhost)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .catch(err => console.error('Erro ao registrar o service worker:', err));
+            });
+        }
+    </script>
 </body>
 </html>
