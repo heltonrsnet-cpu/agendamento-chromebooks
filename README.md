@@ -81,11 +81,64 @@ $env:FLASK_DEBUG = "1"   # apenas em desenvolvimento
 
 > ⚠️ **Nunca ative `FLASK_DEBUG` em um servidor acessível pela rede.** A página de depuração do Flask permite executar código no servidor.
 
+## 🌐 Publicar na Internet (PythonAnywhere)
+
+O plano gratuito **Beginner** do [PythonAnywhere](https://www.pythonanywhere.com/) atende este projeto: mantém o arquivo SQLite entre reinícios e já inclui HTTPS em `SEU-USUARIO.pythonanywhere.com`.
+
+> ⚠️ Evite serviços cujo plano gratuito apaga o disco a cada reinício (como o Render): o banco SQLite seria perdido junto com todos os agendamentos.
+
+**Limites do plano gratuito:** 1 aplicativo web, 512 MB de disco, 100 segundos de CPU por dia e suporte apenas da comunidade. O app expira se não for renovado periodicamente (botão de extensão na aba *Web*). Suficiente para uma escola ou um piloto; para a rede inteira, considere um plano pago.
+
+**1. Mantenha o repositório do GitHub como privado.** O histórico inicial contém o banco de dados com e-mails e hashes de senha.
+
+**2. Crie um token de acesso no GitHub** para o servidor poder baixar o código privado: *Settings* → *Developer settings* → *Personal access tokens* → *Fine-grained tokens* → *Generate new token*. Em *Repository access*, escolha apenas este repositório; em *Permissions*, dê **Contents: Read-only**. Copie o token gerado.
+
+**3. Crie uma conta *Beginner*** no PythonAnywhere.
+
+**4. Abra um *Bash console*** (aba *Consoles*) e execute, no console do PythonAnywhere:
+```text
+git clone https://github.com/heltonrsnet-cpu/agendamento-chromebooks.git ChromeAgenda
+cd ChromeAgenda
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python init_db.py
+```
+*(No `git clone`, informe seu usuário do GitHub e, quando pedir a senha, cole o **token** do passo 2. Não coloque o token dentro da URL do comando.)*
+
+**5. Crie o aplicativo** na aba *Web*: *Add a new web app* → **Manual configuration** (não escolha a opção "Flask") → versão de Python mais nova disponível.
+
+**6. Configure o aplicativo**, ainda na aba *Web*:
+*   **Virtualenv:** `/home/SEU-USUARIO/ChromeAgenda/venv`
+*   **Force HTTPS:** ativado
+*   **WSGI configuration file:** clique no link, apague o conteúdo e cole o código abaixo:
+
+```python
+import os
+import sys
+
+projeto = '/home/SEU-USUARIO/ChromeAgenda'
+if projeto not in sys.path:
+    sys.path.insert(0, projeto)
+
+os.environ['SECRET_KEY'] = 'cole-aqui-uma-chave-gerada'
+os.environ['SESSION_COOKIE_SECURE'] = '1'
+
+from app import app as application
+```
+*(Gere a chave como explicado em [Variáveis de Ambiente](#-variáveis-de-ambiente). Ela fica apenas neste arquivo do servidor: nunca a envie para o GitHub.)*
+
+**7. Clique em *Reload*** e acesse `https://SEU-USUARIO.pythonanywhere.com`.
+
+**Para atualizar o sistema depois:** no Bash console, execute `cd ChromeAgenda && git pull` (o token será pedido de novo como senha) e clique em *Reload* na aba *Web*. O banco de dados não é afetado, pois não é versionado. Se `style.css`, `script.js` ou os ícones mudarem, lembre-se de aumentar `VERSAO_CACHE` no `static/sw.js`.
+
+> 🔐 Antes de liberar o acesso aos professores, troque as senhas de exemplo do `init_db.py`, que estão publicadas neste README.
+
 ## 📱 Instalar no Celular (PWA)
 
 O sistema é um **PWA** (Progressive Web App): pode ser instalado no Android como um aplicativo, com ícone próprio e abrindo em tela cheia.
 
-1. Publique o servidor em um endereço com **HTTPS** (o navegador só permite instalar PWAs em HTTPS ou em `localhost`).
+1. Publique o servidor em um endereço com **HTTPS** (veja [Publicar na Internet](#-publicar-na-internet-pythonanywhere); o navegador só permite instalar PWAs em HTTPS ou em `localhost`).
 2. No celular, abra o endereço no **Chrome**.
 3. Toque no menu **⋮** e escolha **Instalar app** (ou **Adicionar à tela inicial**).
 
