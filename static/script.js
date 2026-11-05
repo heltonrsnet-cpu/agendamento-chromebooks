@@ -1,154 +1,429 @@
 let meuGrafico = null;
+let usuarioAtual = null;
+let opcoes = null;
+let inicioSemana = segundaDaSemana(new Date());
+let ultimoLogId = null;
+
+const DIAS_SEMANA = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+const NOMES_LOG = {
+    ENTRADA: 'Entrada',
+    ENTRADA_RECUSADA: 'Entrada recusada',
+    SAIDA: 'Saída',
+    CADASTRO: 'Cadastro',
+    AGENDAMENTO: 'Agendamento',
+    CANCELAMENTO: 'Cancelamento',
+    ADMINISTRACAO: 'Administração'
+};
+
+const $ = id => document.getElementById(id);
+
+// Cria elementos com textContent, para que dados do banco nunca sejam interpretados como HTML
+function criar(tag, classe, ...filhos) {
+    const elemento = document.createElement(tag);
+    if (classe) elemento.className = classe;
+    elemento.append(...filhos);
+    return elemento;
+}
+
+function mostrarMensagem(id, texto, tipo = 'erro') {
+    const aviso = $(id);
+    aviso.textContent = texto;
+    aviso.dataset.tipo = tipo;
+}
 
 // Faz a requisição e devolve status + corpo JSON; se a sessão expirou, volta para o login
-function requisitarApi(url, opcoes = {}) {
-    return fetch(url, { credentials: 'same-origin', ...opcoes })
+function requisitarApi(url, opcoesFetch = {}) {
+    return fetch(url, { credentials: 'same-origin', ...opcoesFetch })
         .then(response => response.json().then(data => ({ status: response.status, body: data })))
         .then(resultado => {
-            if (resultado.status === 401 && url !== '/api/login' && url !== '/api/me') {
-                mostrarLogin(resultado.body.mensagem);
+            if (resultado.status === 401 && usuarioAtual) {
+                mostrarEntrada(resultado.body.mensagem);
             }
             return resultado;
         });
 }
 
-function mostrarSistema(usuario) {
-    document.getElementById('nome-usuario-logado').textContent = usuario.nome;
-    document.getElementById('perfil-usuario-logado').textContent = usuario.perfil;
-    document.getElementById('secao-login').classList.add('hidden');
-    document.getElementById('secao-sistema').classList.remove('hidden');
-    carregarDadosDoSistema();
-}
-
-function mostrarLogin(mensagem = '') {
-    document.getElementById('form-login').reset();
-    const aviso = document.getElementById('mensagem-login');
-    aviso.textContent = mensagem;
-    aviso.style.color = 'var(--danger)';
-    document.getElementById('secao-sistema').classList.add('hidden');
-    document.getElementById('secao-login').classList.remove('hidden');
-}
-
-// --- 0. RESTAURA A SESSÃO AO RECARREGAR A PÁGINA ---
-requisitarApi('/api/me')
-    .then(resultado => {
-        if (resultado.status === 200) {
-            mostrarSistema(resultado.body.usuario);
-        }
-    })
-    .catch(err => console.error('Erro ao verificar sessão:', err));
-
-// --- 1. LÓGICA DE LOGIN ---
-document.getElementById('form-login').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const email = document.getElementById('email-login').value;
-    const senha = document.getElementById('senha-login').value;
-
-    requisitarApi('/api/login', {
+function enviarJson(url, dados) {
+    return requisitarApi(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, senha: senha })
-    })
-    .then(resultado => {
-        if (resultado.status === 200) {
-            document.getElementById('mensagem-login').textContent = '';
-            mostrarSistema(resultado.body.usuario);
-        } else {
-            document.getElementById('mensagem-login').textContent = resultado.body.mensagem;
-            document.getElementById('mensagem-login').style.color = 'var(--danger)';
-        }
-    })
-    .catch(err => {
-        console.error('Erro no login:', err);
-        alert('Erro de conexão com o servidor.');
+        body: JSON.stringify(dados)
     });
+}
+
+// --- DATAS (sempre no horário local do aparelho) ---
+function isoData(data) {
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const dia = String(data.getDate()).padStart(2, '0');
+    return `${data.getFullYear()}-${mes}-${dia}`;
+}
+
+function lerData(texto) {
+    const [ano, mes, dia] = texto.split('-').map(Number);
+    return new Date(ano, mes - 1, dia);
+}
+
+function somarDias(data, dias) {
+    return new Date(data.getFullYear(), data.getMonth(), data.getDate() + dias);
+}
+
+function segundaDaSemana(data) {
+    return somarDias(data, -((data.getDay() + 6) % 7));
+}
+
+function dataCurta(data) {
+    return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function dataHoraLog(texto) {
+    const [data, hora] = texto.split('T');
+    return `${data.split('-').reverse().join('/')} ${hora}`;
+}
+
+// --- ENTRADA NO SISTEMA ---
+function mostrarSistema(usuario) {
+    usuarioAtual = usuario;
+    $('nome-usuario-logado').textContent = usuario.nome;
+    $('funcao-usuario-logado').textContent = usuario.funcao;
+    $('aba-admin').classList.toggle('hidden', !usuario.admin);
+    $('secao-entrada').classList.add('hidden');
+    $('secao-sistema').classList.remove('hidden');
+    abrirAba('agenda');
+}
+
+function mostrarEntrada(mensagem = '') {
+    usuarioAtual = null;
+    $('form-login').reset();
+    $('form-cadastro').reset();
+    limparDadosDaSessao();
+    alternarCartaoEntrada(false);
+    mostrarMensagem('mensagem-login', mensagem);
+    $('secao-sistema').classList.add('hidden');
+    $('secao-entrada').classList.remove('hidden');
+}
+
+// O aparelho pode ser compartilhado: nada da sessão anterior fica na tela para o próximo usuário
+function limparDadosDaSessao() {
+    $('form-agendamento').reset();
+    $('etapa').dispatchEvent(new Event('change'));
+    ['lista-agenda', 'lista-meus', 'corpo-logs', 'corpo-usuarios'].forEach(id => $(id).replaceChildren());
+    ['mensagem-agenda', 'mensagem-agendamento', 'mensagem-meus', 'mensagem-logs', 'mensagem-usuarios'].forEach(id => mostrarMensagem(id, ''));
+    $('filtro-log').value = '';
+    ultimoLogId = null;
+    inicioSemana = segundaDaSemana(new Date());
+}
+
+function alternarCartaoEntrada(cadastro) {
+    $('cartao-login').classList.toggle('hidden', cadastro);
+    $('cartao-cadastro').classList.toggle('hidden', !cadastro);
+    mostrarMensagem('mensagem-login', '');
+    mostrarMensagem('mensagem-cadastro', '');
+}
+
+$('ir-cadastro').addEventListener('click', () => alternarCartaoEntrada(true));
+$('ir-login').addEventListener('click', () => alternarCartaoEntrada(false));
+
+$('form-login').addEventListener('submit', function(e) {
+    e.preventDefault();
+    enviarJson('/api/login', { email: $('email-login').value, senha: $('senha-login').value })
+        .then(resultado => {
+            if (resultado.status === 200) {
+                $('form-login').reset();
+                mostrarMensagem('mensagem-login', '');
+                mostrarSistema(resultado.body.usuario);
+            } else {
+                mostrarMensagem('mensagem-login', resultado.body.mensagem);
+            }
+        })
+        .catch(err => {
+            console.error('Erro no login:', err);
+            mostrarMensagem('mensagem-login', 'Erro de conexão com o servidor.');
+        });
 });
 
-// --- 2. LOGOUT ---
-function fazerLogout() {
+$('form-cadastro').addEventListener('submit', function(e) {
+    e.preventDefault();
+    enviarJson('/api/cadastro', {
+        nome: $('cadastro-nome').value,
+        email: $('cadastro-email').value,
+        senha: $('cadastro-senha').value,
+        funcao: $('cadastro-funcao').value
+    })
+        .then(resultado => {
+            if (resultado.status === 201) {
+                $('form-cadastro').reset();
+                mostrarMensagem('mensagem-cadastro', '');
+                mostrarSistema(resultado.body.usuario);
+            } else {
+                mostrarMensagem('mensagem-cadastro', resultado.body.mensagem);
+            }
+        })
+        .catch(err => {
+            console.error('Erro no cadastro:', err);
+            mostrarMensagem('mensagem-cadastro', 'Erro de conexão com o servidor.');
+        });
+});
+
+$('botao-sair').addEventListener('click', () => {
     fetch('/api/logout', { method: 'POST', credentials: 'same-origin' })
         .catch(err => console.error('Erro ao encerrar sessão:', err))
-        .finally(() => mostrarLogin());
+        .finally(() => mostrarEntrada());
+});
+
+// --- ABAS ---
+const CARREGAR_ABA = {
+    agenda: carregarAgenda,
+    novo: prepararFormulario,
+    meus: carregarMeus,
+    admin: carregarAdministracao
+};
+
+function abrirAba(nome) {
+    document.querySelectorAll('.aba').forEach(aba => {
+        const ativa = aba.dataset.aba === nome;
+        aba.classList.toggle('ativa', ativa);
+        if (ativa) aba.setAttribute('aria-current', 'page');
+        else aba.removeAttribute('aria-current');
+    });
+    document.querySelectorAll('.painel').forEach(painel => {
+        painel.classList.toggle('hidden', painel.id !== `painel-${nome}`);
+    });
+    CARREGAR_ABA[nome]();
 }
 
-function carregarDadosDoSistema() {
-    carregarEquipamentos();
-    carregarEstatisticas();
+document.querySelectorAll('.aba').forEach(aba => {
+    aba.addEventListener('click', () => abrirAba(aba.dataset.aba));
+});
+
+// --- AGENDA DA SEMANA ---
+function cartaoAgendamento(reserva, aoCancelar) {
+    const titulo = criar('strong', '', `${reserva.horario_inicio} às ${reserva.horario_fim}`);
+    const quantidade = criar('span', 'etiqueta', `${reserva.quantidade} ${reserva.quantidade === 1 ? 'máquina' : 'máquinas'}`);
+    const cabecalho = criar('div', 'reserva-topo', titulo, quantidade);
+
+    const cartao = criar('div', 'reserva', cabecalho,
+        criar('p', '', `${reserva.ano} ${reserva.turma} · ${reserva.etapa}`),
+        criar('p', 'discreto', reserva.finalidade));
+
+    if (reserva.professor) cartao.append(criar('p', 'discreto', reserva.professor));
+
+    if (reserva.pode_cancelar) {
+        const botao = criar('button', 'link link-perigo', 'Cancelar');
+        botao.addEventListener('click', () => cancelarAgendamento(reserva, aoCancelar));
+        cartao.append(botao);
+    }
+    return cartao;
 }
 
-// --- 3. CARREGAR EQUIPAMENTOS (CARRINHOS) ---
-function carregarEquipamentos() {
-    requisitarApi('/api/equipamentos')
+function cancelarAgendamento(reserva, aoCancelar) {
+    const data = lerData(reserva.data_agendamento);
+    if (!confirm(`Cancelar o agendamento de ${dataCurta(data)}, das ${reserva.horario_inicio} às ${reserva.horario_fim}?`)) return;
+
+    requisitarApi(`/api/agendamentos/${reserva.id}/cancelar`, { method: 'POST' })
+        .then(resultado => {
+            if (resultado.status !== 401) aoCancelar(resultado);
+        })
+        .catch(err => console.error('Erro ao cancelar:', err));
+}
+
+function carregarAgenda() {
+    const fimSemana = somarDias(inicioSemana, 6);
+    $('titulo-semana').textContent = `${dataCurta(inicioSemana)} a ${dataCurta(fimSemana)}`;
+
+    requisitarApi(`/api/agenda?inicio=${isoData(inicioSemana)}&dias=7`)
         .then(resultado => {
             if (resultado.status !== 200) return;
-            const lista = document.getElementById('lista-equipamentos');
-            lista.innerHTML = '';
+            const { agendamentos, total } = resultado.body;
+            const lista = $('lista-agenda');
+            lista.replaceChildren();
+            const hoje = isoData(new Date());
 
-            // Monta os itens com textContent para que dados do banco nunca sejam interpretados como HTML
-            resultado.body.forEach(equipamento => {
-                const item = document.createElement('li');
-                item.className = 'equipamento-item';
+            for (let i = 0; i < 7; i++) {
+                const dia = somarDias(inicioSemana, i);
+                const chave = isoData(dia);
+                const doDia = agendamentos.filter(reserva => reserva.data_agendamento === chave);
 
-                const titulo = document.createElement('strong');
-                titulo.textContent = `ID ${equipamento.id}: ${equipamento.identificador}`;
-                const estado = document.createElement('em');
-                estado.textContent = equipamento.status;
-                if (equipamento.status !== 'Disponível') estado.className = 'indisponivel';
+                // Sábado e domingo só aparecem quando têm agendamento
+                if (i >= 5 && doDia.length === 0) continue;
 
-                item.append(
-                    titulo, document.createElement('br'),
-                    `Capacidade: ${equipamento.quantidade_chromebooks} Chromebooks`, document.createElement('br'),
-                    'Estado: ', estado
-                );
-                lista.appendChild(item);
-            });
+                const nome = `${DIAS_SEMANA[dia.getDay()]}, ${dataCurta(dia)}`;
+                const bloco = criar('div', chave === hoje ? 'dia dia-hoje' : 'dia',
+                    criar('h3', '', chave === hoje ? `${nome} (hoje)` : nome));
 
-            preencherSeletorCarrinhos(resultado.body);
+                if (doDia.length === 0) {
+                    bloco.append(criar('p', 'discreto', `Sem agendamentos: ${total} máquinas livres.`));
+                } else {
+                    doDia.forEach(reserva => bloco.append(cartaoAgendamento(reserva, res => {
+                        mostrarMensagem('mensagem-agenda', res.body.mensagem, res.status === 200 ? 'sucesso' : 'erro');
+                        carregarAgenda();
+                    })));
+                }
+                lista.append(bloco);
+            }
         })
-        .catch(error => console.error('Erro ao buscar equipamentos:', error));
+        .catch(err => {
+            console.error('Erro ao carregar a agenda:', err);
+            mostrarMensagem('mensagem-agenda', 'Não foi possível carregar a agenda.');
+        });
 }
 
-// Lista os carrinhos no formulário; os que não estão disponíveis aparecem desabilitados
-function preencherSeletorCarrinhos(equipamentos) {
-    const seletor = document.getElementById('equipamento_id');
-    const selecionado = seletor.value;
-    seletor.length = 1; // mantém só a opção "Selecione um carrinho"
+$('semana-anterior').addEventListener('click', () => {
+    inicioSemana = somarDias(inicioSemana, -7);
+    mostrarMensagem('mensagem-agenda', '');
+    carregarAgenda();
+});
+$('semana-seguinte').addEventListener('click', () => {
+    inicioSemana = somarDias(inicioSemana, 7);
+    mostrarMensagem('mensagem-agenda', '');
+    carregarAgenda();
+});
+$('semana-atual').addEventListener('click', () => {
+    inicioSemana = segundaDaSemana(new Date());
+    mostrarMensagem('mensagem-agenda', '');
+    carregarAgenda();
+});
 
-    equipamentos.forEach(equipamento => {
-        const disponivel = equipamento.status === 'Disponível';
-        const opcao = document.createElement('option');
-        opcao.value = equipamento.id;
-        opcao.textContent = `${equipamento.identificador} (${equipamento.bloco_localizacao})` +
-            (disponivel ? '' : ` - ${equipamento.status}`);
-        opcao.disabled = !disponivel;
-        seletor.appendChild(opcao);
-    });
-
-    seletor.value = selecionado;
+// --- NOVO AGENDAMENTO ---
+function preencherSeletor(seletor, valores) {
+    seletor.length = 1; // mantém só a primeira opção ("Selecione...")
+    valores.forEach(valor => seletor.add(new Option(valor, valor)));
 }
 
-// --- 4. PAINEL DE ESTATÍSTICAS E GRÁFICO ---
+function prepararFormulario() {
+    $('data').min = isoData(new Date());
+    mostrarMensagem('mensagem-agendamento', '');
+    atualizarDisponibilidade();
+}
+
+$('etapa').addEventListener('change', () => {
+    const etapa = opcoes && opcoes.etapas[$('etapa').value];
+    preencherSeletor($('ano'), etapa ? etapa.anos : []);
+    preencherSeletor($('finalidade'), etapa ? etapa.finalidades : []);
+    $('ano').disabled = !etapa;
+    $('finalidade').disabled = !etapa;
+});
+
+function atualizarDisponibilidade() {
+    const data = $('data').value, inicio = $('inicio').value, fim = $('fim').value;
+    const aviso = $('aviso-disponibilidade');
+    const total = opcoes ? opcoes.escola.total_chromebooks : 0;
+
+    $('quantidade').max = total;
+    if (!data || !inicio || !fim) {
+        aviso.textContent = `A escola tem ${total} máquinas. Informe data e horários para ver quantas estão livres.`;
+        aviso.dataset.tipo = '';
+        return;
+    }
+    if (fim <= inicio) {
+        aviso.textContent = 'O horário de fim deve ser posterior ao de início.';
+        aviso.dataset.tipo = 'erro';
+        return;
+    }
+
+    const parametros = new URLSearchParams({ data, inicio, fim });
+    requisitarApi(`/api/disponibilidade?${parametros}`)
+        .then(resultado => {
+            if (resultado.status !== 200) return;
+            const { livres, total } = resultado.body;
+            aviso.textContent = livres > 0
+                ? `${livres} de ${total} máquinas livres nesse horário.`
+                : 'Todas as máquinas estão reservadas nesse horário.';
+            aviso.dataset.tipo = livres > 0 ? 'sucesso' : 'erro';
+            $('quantidade').max = Math.max(livres, 1);
+        })
+        .catch(err => console.error('Erro ao consultar disponibilidade:', err));
+}
+
+['data', 'inicio', 'fim'].forEach(id => $(id).addEventListener('change', atualizarDisponibilidade));
+
+$('form-agendamento').addEventListener('submit', function(evento) {
+    evento.preventDefault();
+    const dadosAgendamento = {
+        data: $('data').value,
+        inicio: $('inicio').value,
+        fim: $('fim').value,
+        quantidade: $('quantidade').value,
+        etapa: $('etapa').value,
+        ano: $('ano').value,
+        turma: $('turma').value,
+        finalidade: $('finalidade').value
+    };
+
+    enviarJson('/api/agendamentos', dadosAgendamento)
+        .then(resultado => {
+            if (resultado.status === 401) return;
+            if (resultado.status === 201) {
+                $('form-agendamento').reset();
+                $('etapa').dispatchEvent(new Event('change'));
+                mostrarMensagem('mensagem-agendamento', resultado.body.mensagem, 'sucesso');
+            } else {
+                mostrarMensagem('mensagem-agendamento', resultado.body.mensagem);
+            }
+            atualizarDisponibilidade();
+        })
+        .catch(error => {
+            console.error('Erro ao enviar agendamento:', error);
+            mostrarMensagem('mensagem-agendamento', 'Erro ao realizar o agendamento.');
+        });
+});
+
+// --- MEUS AGENDAMENTOS ---
+function carregarMeus() {
+    requisitarApi('/api/agendamentos/meus')
+        .then(resultado => {
+            if (resultado.status !== 200) return;
+            const lista = $('lista-meus');
+            lista.replaceChildren();
+
+            if (resultado.body.length === 0) {
+                lista.append(criar('p', 'discreto', 'Você ainda não tem agendamentos.'));
+                return;
+            }
+
+            resultado.body.forEach(reserva => {
+                const data = lerData(reserva.data_agendamento);
+                const bloco = criar('div', reserva.status === 'Cancelado' ? 'dia cancelado' : 'dia',
+                    criar('h3', '', `${DIAS_SEMANA[data.getDay()]}, ${dataCurta(data)}` +
+                        (reserva.status === 'Cancelado' ? ' (cancelado)' : '')),
+                    cartaoAgendamento(reserva, res => {
+                        mostrarMensagem('mensagem-meus', res.body.mensagem, res.status === 200 ? 'sucesso' : 'erro');
+                        carregarMeus();
+                    }));
+                lista.append(bloco);
+            });
+        })
+        .catch(err => {
+            console.error('Erro ao carregar agendamentos:', err);
+            mostrarMensagem('mensagem-meus', 'Não foi possível carregar seus agendamentos.');
+        });
+}
+
+// --- ADMINISTRAÇÃO ---
+function carregarAdministracao() {
+    carregarEstatisticas();
+    carregarLogs();
+    carregarUsuarios();
+}
+
 function carregarEstatisticas() {
-    requisitarApi('/api/estatisticas')
+    requisitarApi('/api/admin/estatisticas')
         .then(resultado => {
             if (resultado.status !== 200) return;
             const dados = resultado.body;
-            document.getElementById('total-reservas').textContent = dados.total_agendamentos;
-            const rotulos = dados.por_equipamento.map(item => item.identificador);
-            const totais = dados.por_equipamento.map(item => item.total);
-            const ctx = document.getElementById('graficoUso').getContext('2d');
+            $('total-reservas').textContent = dados.total_agendamentos;
+            $('total-usuarios').textContent = dados.total_usuarios;
+
             if (meuGrafico) {
                 meuGrafico.destroy();
             }
 
-            meuGrafico = new Chart(ctx, {
+            meuGrafico = new Chart($('graficoUso').getContext('2d'), {
                 type: 'doughnut',
                 data: {
-                    labels: rotulos,
+                    labels: dados.por_etapa.map(item => item.etapa),
                     datasets: [{
-                        data: totais,
-                        backgroundColor: ['#2563eb', '#38bdf8', '#34d399', '#f59e0b', '#ec4899'],
+                        data: dados.por_etapa.map(item => item.total),
+                        backgroundColor: ['#2563eb', '#38bdf8', '#f59e0b'],
                         borderWidth: 2,
                         borderColor: '#ffffff'
                     }]
@@ -159,7 +434,7 @@ function carregarEstatisticas() {
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { boxWidth: 10, font: { family: 'Inter', size: 10 } }
+                            labels: { boxWidth: 10, font: { size: 11 } }
                         }
                     }
                 }
@@ -168,37 +443,124 @@ function carregarEstatisticas() {
         .catch(error => console.error('Erro ao carregar estatísticas:', error));
 }
 
-// --- 5. NOVO AGENDAMENTO ---
-document.getElementById('form-agendamento').addEventListener('submit', function(evento) {
-    evento.preventDefault();
-    const dadosAgendamento = {
-        equipamento_id: document.getElementById('equipamento_id').value,
-        data: document.getElementById('data').value,
-        inicio: document.getElementById('inicio').value,
-        fim: document.getElementById('fim').value,
-        turma: document.getElementById('turma').value
-    };
+function carregarLogs(continuar = false) {
+    const parametros = new URLSearchParams({ tipo: $('filtro-log').value });
+    if (continuar && ultimoLogId) parametros.set('antes_de', ultimoLogId);
 
-    if (dadosAgendamento.fim <= dadosAgendamento.inicio) {
-        alert('O horário de fim deve ser posterior ao horário de início.');
-        return;
-    }
+    requisitarApi(`/api/admin/logs?${parametros}`)
+        .then(resultado => {
+            if (resultado.status !== 200) return;
+            const { logs, tem_mais, resumo } = resultado.body;
+            atualizarFiltroLogs(resumo);
 
-    requisitarApi('/api/agendamentos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dadosAgendamento)
+            const corpo = $('corpo-logs');
+            if (!continuar) corpo.replaceChildren();
+
+            logs.forEach(log => {
+                const usuario = log.usuario_nome ? `${log.usuario_nome} (${log.usuario_email})` : (log.usuario_email || '-');
+                corpo.append(criar('tr', '',
+                    criar('td', 'sem-quebra', dataHoraLog(log.criado_em)),
+                    criar('td', 'sem-quebra', NOMES_LOG[log.tipo] || log.tipo),
+                    criar('td', '', usuario),
+                    criar('td', '', log.detalhes || '-')));
+            });
+
+            if (logs.length > 0) ultimoLogId = logs[logs.length - 1].id;
+            $('mais-logs').classList.toggle('hidden', !tem_mais);
+            mostrarMensagem('mensagem-logs', !continuar && logs.length === 0 ? 'Nenhum registro encontrado.' : '', 'info');
+        })
+        .catch(err => {
+            console.error('Erro ao carregar logs:', err);
+            mostrarMensagem('mensagem-logs', 'Não foi possível carregar os logs.');
+        });
+}
+
+function atualizarFiltroLogs(resumo) {
+    const filtro = $('filtro-log');
+    const selecionado = filtro.value;
+    const total = Object.values(resumo).reduce((soma, valor) => soma + valor, 0);
+    filtro.replaceChildren(new Option(`Todos os eventos (${total})`, ''));
+    Object.entries(NOMES_LOG).forEach(([tipo, nome]) => {
+        filtro.add(new Option(`${nome} (${resumo[tipo] || 0})`, tipo));
+    });
+    filtro.value = selecionado;
+}
+
+$('filtro-log').addEventListener('change', () => carregarLogs());
+$('mais-logs').addEventListener('click', () => carregarLogs(true));
+
+function carregarUsuarios() {
+    requisitarApi('/api/admin/usuarios')
+        .then(resultado => {
+            if (resultado.status !== 200) return;
+            const corpo = $('corpo-usuarios');
+            corpo.replaceChildren();
+
+            resultado.body.forEach(usuario => {
+                const celulaAcesso = criar('td', 'sem-quebra', usuario.ativo ? 'Ativo ' : 'Desativado ');
+                if (usuario.id !== usuarioAtual.id) {
+                    const botao = criar('button', usuario.ativo ? 'link link-perigo' : 'link', usuario.ativo ? 'Desativar' : 'Reativar');
+                    botao.addEventListener('click', () => alterarAcesso(usuario));
+                    celulaAcesso.append(botao);
+                }
+                corpo.append(criar('tr', '',
+                    criar('td', '', usuario.nome),
+                    criar('td', '', usuario.email),
+                    criar('td', '', usuario.funcao),
+                    criar('td', '', String(usuario.agendamentos)),
+                    celulaAcesso));
+            });
+        })
+        .catch(err => {
+            console.error('Erro ao carregar usuários:', err);
+            mostrarMensagem('mensagem-usuarios', 'Não foi possível carregar os usuários.');
+        });
+}
+
+function alterarAcesso(usuario) {
+    const ativar = !usuario.ativo;
+    if (!ativar && !confirm(`Desativar o acesso de ${usuario.nome}?`)) return;
+
+    enviarJson(`/api/admin/usuarios/${usuario.id}/ativo`, { ativo: ativar })
+        .then(resultado => {
+            if (resultado.status === 401) return;
+            mostrarMensagem('mensagem-usuarios', resultado.body.mensagem, resultado.status === 200 ? 'sucesso' : 'erro');
+            carregarUsuarios();
+            carregarLogs();
+        })
+        .catch(err => console.error('Erro ao alterar acesso:', err));
+}
+
+// --- INÍCIO: dados da escola e sessão já aberta ---
+function preencherEscola(escola) {
+    $('nome-escola').textContent = escola.nome;
+
+    const telefone = criar('a', '', escola.telefone);
+    telefone.href = `tel:+55${escola.telefone.replace(/\D/g, '')}`;
+    const qedu = criar('a', '', 'Dados da escola no QEdu');
+    qedu.href = escola.url;
+    qedu.target = '_blank';
+    qedu.rel = 'noopener';
+
+    $('rodape-escola').replaceChildren(
+        criar('p', '', escola.endereco),
+        criar('p', '', telefone, ' · ', qedu),
+        criar('p', '', `${escola.total_chromebooks} Chromebooks · ${escola.professores} professores · ${escola.alunos.toLocaleString('pt-BR')} alunos`)
+    );
+}
+
+requisitarApi('/api/opcoes')
+    .then(resultado => {
+        opcoes = resultado.body;
+        preencherEscola(opcoes.escola);
+        preencherSeletor($('cadastro-funcao'), opcoes.funcoes);
+        preencherSeletor($('etapa'), Object.keys(opcoes.etapas));
+        $('cadastro-senha').minLength = opcoes.senha_minima;
+        return requisitarApi('/api/me');
     })
     .then(resultado => {
-        if (resultado.status === 401) return;
-        alert(resultado.body.mensagem);
-        if (resultado.status === 201) {
-            document.getElementById('form-agendamento').reset();
-            carregarEstatisticas();
+        if (resultado.status === 200) {
+            mostrarSistema(resultado.body.usuario);
         }
     })
-    .catch(error => {
-        console.error('Erro ao enviar agendamento:', error);
-        alert("Erro ao realizar o agendamento.");
-    });
-});
+    .catch(err => console.error('Erro ao iniciar o sistema:', err));

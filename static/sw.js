@@ -1,6 +1,6 @@
 // Service worker do PWA: guarda a "casca" do app para abrir rápido e mostrar uma página offline.
 // Ao alterar arquivos do app, aumente a versão para descartar o cache antigo.
-const VERSAO_CACHE = 'chromebooks-v1';
+const VERSAO_CACHE = 'chromebooks-v2';
 
 const ARQUIVOS_APP = [
     '/static/style.css',

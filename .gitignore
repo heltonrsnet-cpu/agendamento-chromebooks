@@ -5,6 +5,9 @@ venv/
 # Banco de dados local (gerado por init_db.py; contém hashes de senha)
 *.db
 
+# Senha inicial do administrador (gerada por init_db.py)
+admin_inicial.txt
+
 # Python
 __pycache__/
 *.pyc
