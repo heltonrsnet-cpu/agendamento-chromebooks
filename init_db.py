@@ -12,7 +12,8 @@ DB_PATH = os.environ.get('DATABASE_PATH') or os.path.join(BASE_DIR, 'agendamento
 ARQUIVO_SENHA = os.path.join(BASE_DIR, 'admin_inicial.txt')
 
 ADMIN_NOME = 'Marcus Dionizio Altoe'
-ADMIN_EMAIL = '***REMOVIDO***'
+# O e-mail real do administrador fica fora do código: defina ADMIN_EMAIL no ambiente.
+ADMIN_EMAIL = (os.environ.get('ADMIN_EMAIL') or 'admin@escola.local').strip().lower()
 
 
 def banco_antigo():

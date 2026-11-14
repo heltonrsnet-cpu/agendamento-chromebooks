@@ -88,6 +88,7 @@ Abra o seu navegador e acesse a URL: http://127.0.0.1:5000/
 | `SECRET_KEY` | Chave que assina o cookie de sessão. Defina sempre um valor longo e aleatório, e mantenha-o em segredo. | Gerada aleatoriamente a cada início do servidor (todos precisam fazer login de novo após reiniciar) |
 | `FLASK_DEBUG` | `1` liga o modo de depuração (recarga automática e página de erros detalhada). | Desligado |
 | `SESSION_COOKIE_SECURE` | `1` faz o cookie de sessão ser enviado apenas por HTTPS. Ative quando o sistema estiver publicado com HTTPS. | Desligado |
+| `ADMIN_EMAIL` | E-mail de login do administrador criado pelo `init_db.py`. | `admin@escola.local` |
 | `ADMIN_SENHA` | Senha do administrador, usada só quando a conta é criada pelo `init_db.py`. | Senha aleatória, salva em `admin_inicial.txt` |
 | `DATABASE_PATH` | Caminho do arquivo do banco de dados (útil para testes). | `agendamento_chromebooks.db` na raiz do projeto |
 
@@ -113,13 +114,11 @@ O plano gratuito **Beginner** do [PythonAnywhere](https://www.pythonanywhere.com
 
 **Limites do plano gratuito:** 1 aplicativo web, 512 MB de disco, 100 segundos de CPU por dia e suporte apenas da comunidade. O app expira se não for renovado periodicamente (botão de extensão na aba *Web*). Suficiente para uma escola ou um piloto; para a rede inteira, considere um plano pago.
 
-**1. Mantenha o repositório do GitHub como privado.** O histórico inicial contém o banco de dados com e-mails e hashes de senha.
+> 🔒 O repositório é público, mas nenhum dado sensível é versionado: o banco de dados, a senha inicial do administrador e o `.env` ficam fora do Git. Senhas, chaves e o e-mail do administrador são definidos apenas no servidor.
 
-**2. Crie um token de acesso no GitHub** para o servidor poder baixar o código privado: *Settings* → *Developer settings* → *Personal access tokens* → *Fine-grained tokens* → *Generate new token*. Em *Repository access*, escolha apenas este repositório; em *Permissions*, dê **Contents: Read-only**. Copie o token gerado.
+**1. Crie uma conta *Beginner*** no PythonAnywhere.
 
-**3. Crie uma conta *Beginner*** no PythonAnywhere.
-
-**4. Abra um *Bash console*** (aba *Consoles*) e execute, no console do PythonAnywhere:
+**2. Abra um *Bash console*** (aba *Consoles*) e execute, no console do PythonAnywhere (troque o e-mail pelo do administrador):
 ```text
 git clone https://github.com/heltonrsnet-cpu/agendamento-chromebooks.git ChromeAgenda
 cd ChromeAgenda
@@ -127,13 +126,13 @@ python3 --version
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python init_db.py
+ADMIN_EMAIL=email-do-administrador@exemplo.com python init_db.py
 ```
-*(No `git clone`, informe seu usuário do GitHub e, quando pedir a senha, cole o **token** do passo 2. Não coloque o token dentro da URL do comando. Anote a versão mostrada por `python3 --version`: ela é usada no próximo passo.)*
+*(Anote a versão mostrada por `python3 --version`: ela é usada no próximo passo.)*
 
-**5. Crie o aplicativo** na aba *Web*: *Add a new web app* → **Manual configuration** (não escolha a opção "Flask") → a **mesma versão de Python** anotada no passo anterior. Versões diferentes impedem o aplicativo de abrir.
+**3. Crie o aplicativo** na aba *Web*: *Add a new web app* → **Manual configuration** (não escolha a opção "Flask") → a **mesma versão de Python** anotada no passo anterior. Versões diferentes impedem o aplicativo de abrir.
 
-**6. Configure o aplicativo**, ainda na aba *Web*:
+**4. Configure o aplicativo**, ainda na aba *Web*:
 *   **Virtualenv:** `/home/SEU-USUARIO/ChromeAgenda/venv`
 *   **Force HTTPS:** ativado
 *   **WSGI configuration file:** clique no link, apague o conteúdo e cole o código abaixo:
@@ -153,9 +152,9 @@ from app import app as application
 ```
 *(Gere a chave como explicado em [Variáveis de Ambiente](#-variáveis-de-ambiente). Ela fica apenas neste arquivo do servidor: nunca a envie para o GitHub.)*
 
-**7. Clique em *Reload*** e acesse `https://SEU-USUARIO.pythonanywhere.com`.
+**5. Clique em *Reload*** e acesse `https://SEU-USUARIO.pythonanywhere.com`.
 
-**Para atualizar o sistema depois:** no Bash console, execute `cd ChromeAgenda && git pull` (o token será pedido de novo como senha) e clique em *Reload* na aba *Web*. O banco de dados não é afetado, pois não é versionado. Se `style.css`, `script.js` ou os ícones mudarem, lembre-se de aumentar `VERSAO_CACHE` no `static/sw.js`.
+**Para atualizar o sistema depois:** no Bash console, execute `cd ChromeAgenda && git pull` e clique em *Reload* na aba *Web*. O banco de dados não é afetado, pois não é versionado. Se `style.css`, `script.js` ou os ícones mudarem, lembre-se de aumentar `VERSAO_CACHE` no `static/sw.js`.
 
 > 🔐 Depois do `init_db.py`, leia a senha com `cat admin_inicial.txt`, guarde-a em local seguro e apague o arquivo com `rm admin_inicial.txt`.
 
@@ -188,9 +187,13 @@ Sem internet, o app mostra uma página avisando que está sem conexão. Os agend
 
 ## 🔐 Conta do Administrador
 
-A única conta criada pelo `init_db.py` é a de **Marcus Dionizio Altoe** (`***REMOVIDO***`), usada para testes, controle e acesso aos dados. Os demais usuários se cadastram pela tela inicial.
+A única conta criada pelo `init_db.py` é a de **Marcus Dionizio Altoe**, usada para testes, controle e acesso aos dados. Os demais usuários se cadastram pela tela inicial.
 
-Nenhuma senha fica no código. Para escolher a senha ao criar o banco, defina a variável `ADMIN_SENHA` antes de executar o script; sem ela, a senha gerada é salva em `admin_inicial.txt`.
+Nenhuma senha ou e-mail real fica no código. Antes de executar o script, defina:
+*   `ADMIN_EMAIL`: e-mail de login do administrador (sem ela, é usado `admin@escola.local`);
+*   `ADMIN_SENHA`: senha do administrador (sem ela, a senha gerada é salva em `admin_inicial.txt`).
+
+> ⚠️ Em um servidor já publicado, defina `ADMIN_EMAIL` com o mesmo e-mail usado na criação do banco antes de executar o `init_db.py` de novo; caso contrário, uma segunda conta de administrador será criada.
 
 ## 📁 Estrutura de Pastas do Projeto
 
